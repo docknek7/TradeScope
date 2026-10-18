@@ -31,14 +31,58 @@ $('saveCloudConfig').onclick=()=>{const url=$('supabaseUrl').value.trim().replac
 $('saveMarketConfig').onclick=()=>{cfg.marketKey=$('finnhubKey').value.trim();saveCfg();toast('行情设置已保存')};
 function saveCfg(){localStorage.setItem(CONFIG,JSON.stringify(cfg));status(cfg.userId?'已登录 · '+(remoteLoaded?'云端同步已启用':'等待载入云端'):'本地演示模式')}
 function project(){if(!cfg.url||!cfg.anon)throw Error('请先配置 Supabase 项目 URL 和 key');return cfg.url}
-async function authCall(path,body){const r=await fetch(project()+'/auth/v1/'+path,{method:'POST',headers:{apikey:cfg.anon,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.msg||j.error_description||j.message||'认证失败');return j}
+async function authCall(path,body){
+const url=project(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+try{
+const r=await fetch(url+'/auth/v1/'+path,{method:'POST',headers:{apikey:cfg.anon,'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+let j;try{j=await r.json()}catch(e){if(e.name==='AbortError')throw e;throw Error('认证服务返回异常（HTTP '+r.status+'），请检查项目 URL 和网络后重试')}
+if(!r.ok){const error=Error(j.msg||j.error_description||j.message||'认证失败（HTTP '+r.status+'）');error.code=j.code||j.error_code;error.status=r.status;throw error}return j;
+}catch(e){if(e.name==='AbortError')throw Error('连接超时，请检查网络及 Supabase 项目状态后重试');if(e instanceof TypeError)throw Error('无法连接 Supabase，请检查网络、项目 URL 和项目是否可用后重试');throw e}finally{clearTimeout(timer)}
+}
+function accountMessage(message,isError=false){
+const el=$('accountStatus');el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.className=isError?'neg':'textmuted';el.textContent=message;
+}
+function authErrorMessage(e){
+const message=e.message||'请求失败，请稍后重试',code=e.code||'';
+if(code==='invalid_credentials'||/invalid login credentials/i.test(message))return '邮箱或密码不正确。请检查输入；尚无账号请先注册。';
+if(code==='email_not_confirmed'||/email not confirmed/i.test(message))return '邮箱尚未验证，请查收验证邮件（包括垃圾邮件文件夹），完成验证后再登录。';
+if(code==='user_already_exists'||/user already registered/i.test(message))return '该邮箱已注册，请使用已有密码登录。';
+if(code==='weak_password'||/password should be at least/i.test(message))return '密码不符合要求，请使用至少 6 位且符合项目安全要求的密码。';
+if(e.status===429)return '请求过于频繁，请稍后再试。';
+if(/invalid api key/i.test(message))return '连接密钥无效，请检查并保存正确的 Supabase Publishable / anon key。';
+return message;
+}
+let authPending=false;
+async function submitAuth(signUp=false){
+if(authPending)return;
+const email=$('email').value.trim(),password=$('password').value;
+if(!email||!password){accountMessage('请填写邮箱和密码。',true);return}
+if(!$('email').checkValidity()){accountMessage('请输入有效的邮箱地址。',true);return}
+authPending=true;
+const controls=['signIn','signUp','disconnect','saveCloudConfig','supabaseUrl','supabaseKey','email','password'].map(id=>$(id));
+const disabled=controls.map(el=>el.disabled),button=$(signUp?'signUp':'signIn'),label=button.textContent;
+controls.forEach(el=>el.disabled=true);button.textContent=signUp?'注册中…':'登录中…';button.setAttribute('aria-busy','true');
+accountMessage(signUp?'正在提交注册，请稍候…':'正在登录，请稍候…');
+try{
+const j=await authCall(signUp?'signup':'token?grant_type=password',{email,password});
+if(signUp&&!j.access_token){accountMessage('注册已提交。若需要邮箱验证，请查收验证邮件（包括垃圾邮件文件夹），验证后再登录。');return}
+if(!j.access_token)throw Error('认证服务未返回登录凭据，请重试。');
+storeToken(j);remoteLoaded=false;
+accountMessage('登录成功：'+email+'；正在加载云端数据…');
+try{await syncDownload(false)}catch(e){status('已登录 · 云端加载失败');accountMessage('已登录，但云端数据加载失败：'+authErrorMessage(e)+'。可稍后在“数据与备份”重试下载。',true);return}
+accountMessage((signUp?'注册并登录成功：':'登录成功：')+email+(remoteLoaded?'；已下载云端数据。':'；云端尚无数据，请到“数据与备份”手动上传。'));
+if(!signUp){toast(remoteLoaded?'登录成功，已下载云端数据':'登录成功。云端尚无数据，请到“数据与备份”手动上传');$('settingsDialog').close()}
+}catch(e){accountMessage((signUp?'注册失败：':'登录失败：')+authErrorMessage(e),true)}finally{
+controls.forEach((el,i)=>el.disabled=disabled[i]);button.textContent=label;button.removeAttribute('aria-busy');authPending=false;
+}
+}
 async function ensureToken(){if(!cfg.token)throw Error('请先登录');if(cfg.token.expires_at&&Date.now()/1000<cfg.token.expires_at-60)return cfg.token.access_token;const j=await authCall('token?grant_type=refresh_token',{refresh_token:cfg.token.refresh_token});storeToken(j);return j.access_token}
 function storeToken(j){cfg.token={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Math.floor(Date.now()/1000)+(j.expires_in||3600)};cfg.userId=j.user?.id||cfg.userId;saveCfg()}
 async function dbCall(method,body){const token=await ensureToken();const r=await fetch(project()+'/rest/v1/user_dashboards?on_conflict=user_id',{method,headers:{apikey:cfg.anon,Authorization:'Bearer '+token,'Content-Type':'application/json',Prefer:method==='POST'?'resolution=merge-duplicates,return=minimal':''},body:body?JSON.stringify(body):undefined});if(!r.ok){const t=await r.text();throw Error('数据库请求失败：'+t.slice(0,180))}return r.status===204?null:r.json()}
 async function syncDownload(show=true){if(!cfg.userId)throw Error('请先登录');const r=await dbCall('GET');const row=Array.isArray(r)?r[0]:null;if(row?.payload&&Array.isArray(row.payload.stocks)){validateData(row.payload);data=row.payload;localStorage.setItem(KEY,JSON.stringify(data));remoteLoaded=true;render();status('云端已载入 · '+new Date().toLocaleTimeString());if(show)toast('已从云端下载，覆盖本机数据')}else{remoteLoaded=false;status('云端暂无数据 · 请手动上传本机数据');if(show)toast('云端还没有看板数据；请先上传本机数据')}}
 async function syncUpload(show=true){if(!cfg.userId)throw Error('请先登录');try{status('正在同步…');await dbCall('POST',{user_id:cfg.userId,payload:data,updated_at:new Date().toISOString()});remoteLoaded=true;status('已同步 · '+new Date().toLocaleTimeString());if(show)toast('已上传云端')}catch(e){status('同步失败 · 本地数据已保存');if(show)toast(e.message)}}
-$('signIn').onclick=async()=>{try{const j=await authCall('token?grant_type=password',{email:$('email').value.trim(),password:$('password').value});storeToken(j);$('accountStatus').textContent='登录成功：'+$('email').value.trim();await syncDownload(false);toast(remoteLoaded?'登录成功，已下载云端数据':'登录成功。云端尚无数据，请到“数据与备份”手动上传');$('settingsDialog').close()}catch(e){toast(e.message)}};
-$('signUp').onclick=async()=>{try{const j=await authCall('signup',{email:$('email').value.trim(),password:$('password').value});if(j.access_token){storeToken(j);await syncDownload(false)}toast('已提交注册；如开启邮件验证，请先查收验证邮件')}catch(e){toast(e.message)}};
+$('signIn').onclick=()=>submitAuth();
+$('signUp').onclick=()=>submitAuth(true);
 $('disconnect').onclick=async()=>{cfg.token=null;cfg.userId=null;remoteLoaded=false;saveCfg();$('accountStatus').textContent='已退出；本机缓存仍保留';toast('已退出云端账户（本地缓存未清除）')};
 $('uploadNow').onclick=()=>{if(!confirm('将本机全部数据覆盖云端同账号的最新记录，确定？'))return;syncUpload(true)};
 $('downloadNow').onclick=()=>{if(!confirm('从云端覆盖本机全部数据？建议先导出备份。'))return;syncDownload(true).catch(e=>toast(e.message))};
