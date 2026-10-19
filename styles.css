@@ -32,3 +32,6 @@
 :root[data-resolved-theme="light"] footer{color:#617489}
 :root[data-resolved-theme="light"] #toast{background:#e4edf8;color:#223950;box-shadow:0 3px 12px #0002}
 @media(max-width:780px){.header-actions{gap:8px}.theme-picker span{display:none}.theme-picker select{min-width:90px;padding:8px}}
+
+/* V3 monitoring, inherits both V2 themes. */
+#view-history input[type="checkbox"]{width:auto;margin:0 8px 0 0}#view-history pre{overflow-x:auto;font-size:12px}#view-history>.panel,#view-history>.actions{margin-top:16px}button:disabled{opacity:.55;cursor:default}

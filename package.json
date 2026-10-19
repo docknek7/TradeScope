@@ -1,0 +1,12 @@
+{
+  "name": "tradescope",
+  "private": true,
+  "version": "3.0.0",
+  "scripts": {
+    "test": "node --test tests/frontend.test.cjs tests/database.test.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "jsdom": "26.1.0"
+  }
+}
