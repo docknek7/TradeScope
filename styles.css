@@ -35,3 +35,22 @@
 
 /* V3 monitoring, inherits both V2 themes. */
 #view-history input[type="checkbox"]{width:auto;margin:0 8px 0 0}#view-history pre{overflow-x:auto;font-size:12px}#view-history>.panel,#view-history>.actions{margin-top:16px}button:disabled{opacity:.55;cursor:default}
+
+/* Stock-focused workspace: watchlist left, chart and research right. */
+.shell{max-width:1540px}
+.market-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+.watchlist-panel{position:sticky;top:18px;border:1px solid #26394f;background:#111e30;border-radius:14px;padding:18px;min-width:0}
+.watchlist-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.watchlist-heading h2{margin:6px 0 0}
+.watchlist-actions{display:flex;gap:8px;margin:16px 0}.watchlist-actions button{padding:9px 10px;font-size:13px;flex:1;white-space:nowrap}
+.watchlist-panel .stock-grid{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 260px);overflow-y:auto;padding:2px}
+.watchlist-panel .stock{min-height:0;padding:14px;border-radius:10px;box-shadow:none}.watchlist-panel .stock.active{box-shadow:inset 3px 0 0 #64a7eb}
+.watchlist-panel .stockname{font-size:19px}.watchlist-panel .price{font-size:24px;margin:12px 0 4px;letter-spacing:-.5px}
+.watchlist-panel .stock .tag{font-size:10px;padding:4px 6px}.watchlist-panel .stock .small{margin-top:6px;font-size:11px}.watchlist-panel .stock .pos,.watchlist-panel .stock .neg,.watchlist-panel .stock .textmuted{font-size:12px}
+.stock-workspace{min-width:0;display:grid;gap:18px}.chart-panel{padding:20px;overflow:hidden}.chart-panel h2{margin:5px 0 0;font-size:24px}
+.chart-actions{display:flex;gap:10px;align-items:end}.chart-actions label{margin:0;font-size:11px}.chart-actions select{display:block;width:112px;margin-top:4px;padding:8px}.chart-actions button{padding:9px;font-size:12px}
+.chart-host{height:480px;border:1px solid #26394f;border-radius:9px;overflow:hidden}.chart-host iframe{width:100%;height:100%;border:0;display:block}.chart-host>.empty{text-align:center;padding:150px 20px}
+.chart-caption{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#96aac0;font-size:11px;margin-top:12px;line-height:1.7}.chart-caption a{color:#77b9fb;text-decoration:none}.chart-caption a:hover{text-decoration:underline}.chart-help{margin:4px 0 0;font-size:11px}
+.stock-detail-columns{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px}.stock-detail-columns .panel{min-width:0}.stock-detail-columns .level strong{overflow-wrap:anywhere}
+:root[data-resolved-theme="light"] .watchlist-panel{background:#fff;border-color:#d8e2ec}:root[data-resolved-theme="light"] .chart-host{border-color:#d8e2ec}:root[data-resolved-theme="light"] .chart-caption{color:#596b81}:root[data-resolved-theme="light"] .chart-caption a{color:#2563a6}:root[data-resolved-theme="light"] .watchlist-panel .stock.active{background:#edf5ff;box-shadow:inset 3px 0 0 #347abd}
+@media(max-width:1100px){.market-layout{grid-template-columns:225px minmax(0,1fr);gap:14px}.watchlist-panel{padding:12px}.stock-detail-columns{grid-template-columns:1fr}.chart-host{height:440px}.chart-panel{padding:16px}}
+@media(max-width:650px){.market-layout{grid-template-columns:1fr}.watchlist-panel{position:static}.watchlist-panel .stock-grid{max-height:230px}.watchlist-panel .stock{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:11px}.watchlist-panel .stock .price{font-size:22px;margin:0;text-align:right}.watchlist-panel .stock .small{margin:0}.watchlist-panel .stock .stockhead{justify-content:flex-start}.watchlist-panel .stock .tag{display:none}.chart-host{height:420px}.chart-panel h2{font-size:21px}.chart-panel .sectionhead{gap:12px}.chart-actions{width:100%;justify-content:space-between}.chart-actions label{display:flex;align-items:center;gap:8px}.chart-actions select{margin:0}.chart-caption{font-size:10px}.stock-workspace{gap:14px}}

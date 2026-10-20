@@ -41,7 +41,7 @@ GitHub Actions → Python 标准库监测器 → Alpaca IEX 15 分钟 K 线与�
 
 ## 4. 部署前端与启用
 
-1. 将 `index.html`、`styles.css`、`app.js`、**`monitor.js`** 发布到同一静态目录。现有 GitHub Pages 根目录部署可直接使用新提交；其他静态托管同理，无需 Node 构建。不要把开发依赖和任何本地环境文件上传。
+1. 将 `index.html`、`styles.css`、`app.js`、**`monitor.js`**、**`chart.html`** 发布到同一静态目录。现有 GitHub Pages 根目录部署可直接使用新提交；其他静态托管同理，无需 Node 构建。不要把开发依赖和任何本地环境文件上传。
 2. 保留原 V2 localStorage；不要清空浏览器数据。先导出 V2 JSON 备份。打开设置，填写 URL / public key，注册/验证/登录。
 3. 云端无工作区时，在“数据与备份”手动上传。已有工作区先下载，避免旧设备覆盖新记录。V2 的“最后写入覆盖”同步语义保持不变，仍应避免多设备同时编辑。
 4. 检查自选股与“观察条件”：后台只处理当前自选股中的条件，已移除股票的旧条件不会运行。没有价格条件的股票仍可启用技术信号。
@@ -117,3 +117,9 @@ python -m http.server 8000
 V2 JSON 导出保留全部原工作区和新增开关；**不包含监测历史或服务器计算状态**。需要完整备份时，从 Supabase 导出 `monitor_events`、`monitor_state` 和原工作区。事件不会自动删除；定期检查表大小，保留期由你决定，删除前先备份。清理历史而保留检查点不会重新补发旧事件。
 
 停止监测：关闭开关并上传（单用户），或在 Actions 禁用 TradeScope monitor（全仓库）。代码回滚至 V2 不需要删除新表；保留表避免丢失历史，新字段会被旧界面忽略。不要回滚或删除 `user_dashboards`。若最终决定移除 V3，先导出表，再由数据库管理员移除新增函数与两张表。
+
+## 股票列表与趋势图
+
+行情页采用左侧竖向自选股列表、右侧趋势图与持仓详情的布局。趋势图使用 [TradingView 官方 Advanced Chart Widget](https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/)，不需要 API key；可选择 15 分钟、1 小时、日线、周线，支持浅色/深色主题。图表与 Finnhub 记录价格、后台 Alpaca IEX 数据独立，数据覆盖及延迟以 TradingView 标示为准。不会用截图快照生成历史走势。
+
+图表在隔离的 iframe 中运行，仅传入公开股票代码、周期和主题，不传入持仓、笔记或登录凭据。需要访问 TradingView 域名，网络拦截或标的不支持时可使用外部链接。MU/NVDA/GOOGL 默认指定 NASDAQ，其他股票由提供方解析；可编辑股票填写明确的交易所代码（如 NYSE:IBM），避免同名标的歧义。静态发布时必须一并上传 chart.html。

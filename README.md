@@ -12,7 +12,7 @@ V3 新增：
 
 ## 部署
 
-按 [完整部署与运维指南](DEPLOYMENT.md) 配置 SQL、GitHub Secrets、静态站点和真实运行验收。监测默认关闭；登录、上传工作区并启用后才会处理。静态发布需要 `index.html`、`styles.css`、`app.js`、`monitor.js` 四个文件，无需构建。
+按 [完整部署与运维指南](DEPLOYMENT.md) 配置 SQL、GitHub Secrets、静态站点和真实运行验收。监测默认关闭；登录、上传工作区并启用后才会处理。静态发布需要 `index.html`、`styles.css`、`app.js`、`monitor.js`、`chart.html` 五个文件，无需构建。
 
 现有 V2 项目只需执行 [V3 增量迁移](supabase/migrations/202610190001_monitor.sql)；新项目先执行 [V2 schema](schema.sql)。[V2 原始说明](docs/V2.md) 保留作历史参考，其中“无后台监测”描述仅适用于 V2。
 
@@ -29,3 +29,9 @@ npm test
 ## 边界
 
 IEX 是单交易所，不是全市场实时行情；不支持 A 股/港股或未经授权的数据。仅收盘跨越，缺线不填充，首次建立基线不补发历史告警。GitHub 定时任务可能延迟或遗漏，不能保证准时通知；历史不是交易指令，不自动下单。详细的免费额度、授权、K 线完整性、公司行为、调度和恢复限制见部署指南。
+
+## 股票列表与趋势图
+
+行情页采用左侧竖向自选股列表、右侧趋势图与持仓详情的布局。趋势图使用 [TradingView 官方 Advanced Chart Widget](https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/)，不需要 API key；可选择 15 分钟、1 小时、日线、周线，支持浅色/深色主题。图表与 Finnhub 记录价格、后台 Alpaca IEX 数据独立，数据覆盖及延迟以 TradingView 标示为准。不会用截图快照生成历史走势。
+
+图表在隔离的 iframe 中运行，仅传入公开股票代码、周期和主题，不传入持仓、笔记或登录凭据。需要访问 TradingView 域名，网络拦截或标的不支持时可使用外部链接。MU/NVDA/GOOGL 默认指定 NASDAQ，其他股票由提供方解析；可编辑股票填写明确的交易所代码（如 NYSE:IBM），避免同名标的歧义。静态发布时必须一并上传 chart.html。

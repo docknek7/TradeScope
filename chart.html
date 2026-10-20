@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>股票趋势图 · TradingView</title>
+<style>html,body{margin:0;height:100%;font:13px system-ui;background:#fff;color:#596b81}body.dark{background:#111e30;color:#96aac0}.tradingview-widget-container{height:100%;width:100%}.tradingview-widget-container__widget{height:calc(100% - 32px);width:100%}.tradingview-widget-copyright{height:32px;display:flex;align-items:center;justify-content:center;gap:4px}a{color:inherit}.loading{padding:24px}#error{position:absolute;inset:25% 15%;text-align:center;line-height:1.8}</style></head>
+<body><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"><p class="loading">正在加载 TradingView 图表…</p></div><div class="tradingview-widget-copyright"><a id="source" target="_blank" rel="noopener nofollow">股票图表</a><span>by TradingView</span></div></div>
+<script>
+'use strict';
+const query=new URLSearchParams(location.search),symbol=query.get('symbol')||'NASDAQ:MU';
+const theme=query.get('theme')==='dark'?'dark':'light';
+const interval=['15','60','D','W'].includes(query.get('interval'))?query.get('interval'):'D';
+document.body.classList.toggle('dark',theme==='dark');
+document.getElementById('source').href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(symbol);
+if(/^(?:[A-Z0-9_]+:)?[A-Z0-9][A-Z0-9._-]{0,24}$/.test(symbol)){
+  // Keep provider code on its own origin; never execute it in app storage context.
+  const frame=document.createElement('iframe');
+  frame.title=symbol+' TradingView 趋势图';
+  frame.style='border:0;width:100%;height:100%';
+  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+  frame.referrerPolicy='no-referrer';
+  const config={autosize:true,symbol,interval,timezone:'exchange',theme,style:'1',
+    allow_symbol_change:false,save_image:false,hide_side_toolbar:true,hide_top_toolbar:false,
+    hide_legend:false,hide_volume:false,withdateranges:true,width:'100%',height:'100%',
+    support_host:'https://www.tradingview.com'};
+  frame.src='https://www.tradingview-widget.com/embed-widget/advanced-chart/?locale=zh_CN#'+encodeURIComponent(JSON.stringify(config));
+  document.querySelector('.tradingview-widget-container__widget').replaceChildren(frame);
+}else{document.querySelector('.loading').textContent='图表代码无效，请编辑股票后重试。'}
+</script></body></html>
