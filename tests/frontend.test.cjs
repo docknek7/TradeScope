@@ -42,6 +42,30 @@ test('monitoring opt-in preserves V2 payload and creates new baseline generation
     assert.equal(data.notes.length,3);
   }finally{w.close()}
 });
+test('watchlist selection updates isolated chart and details without remounting on note changes',()=>{
+  const dom=app(),w=dom.window,d=w.document;
+  try{
+    const first=d.querySelector('#chartHost iframe');
+    assert.match(first.src,/symbol=NASDAQ%3AMU/);
+    assert.ok(first.getAttribute('src').startsWith('chart.html?'));
+    const wrapper=fs.readFileSync('chart.html','utf8');
+    assert.ok(wrapper.includes('https://www.tradingview-widget.com/embed-widget/advanced-chart/'));
+    assert.ok(!wrapper.includes("createElement('script')"));
+    d.querySelector('[data-symbol="NVDA"]').click();
+    const nvda=d.querySelector('#chartHost iframe');
+    assert.match(nvda.src,/symbol=NASDAQ%3ANVDA/);
+    assert.match(d.getElementById('detailTitle').textContent,/NVDA/);
+    assert.equal(d.querySelector('[data-symbol="NVDA"]').getAttribute('aria-pressed'),'true');
+    d.querySelector('[data-pin="n1"]').click();
+    assert.equal(d.querySelector('#chartHost iframe'),nvda);
+    d.getElementById('chartInterval').value='60';
+    d.getElementById('chartInterval').dispatchEvent(new w.Event('change'));
+    assert.match(d.querySelector('#chartHost iframe').src,/interval=60/);
+    w.testAPI.setData({version:2,stocks:[],notes:[],alerts:[]});
+    assert.equal(d.querySelector('#chartHost iframe'),null);
+    assert.match(d.getElementById('chartHost').textContent,/还没有/);
+  }finally{w.close()}
+});
 test('history pagination, escaped content, filters and logout clearing',async()=>{
   const dom=app(),w=dom.window,d=w.document;
   try{
