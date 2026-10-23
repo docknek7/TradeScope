@@ -1,0 +1,24 @@
+name: Pullback V1 paper CI
+on:
+  push:
+    branches: [feature/pullback-v1-paper]
+  pull_request:
+    paths:
+      - 'pullback_v1/**'
+      - 'tests/test_pullback_v1.py'
+      - '.github/workflows/pullback-paper-ci.yml'
+permissions:
+  contents: read
+jobs:
+  paper-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Paper-only unit tests; no credentials
+        run: python -m unittest discover -s tests -p 'test_pullback_v1.py' -v
