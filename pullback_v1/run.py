@@ -36,7 +36,7 @@ def main():
         raise SystemExit("REFUSED: Pullback V1 is paper-only")
     try:
         info=public_get("/fapi/v1/exchangeInfo")
-        rows={tf:bars(args.symbol,tf,500) for tf in ("5m","15m","1h")}
+        rows={tf:bars(args.symbol,tf,(1500 if tf=="5m" and args.mode=="backtest" else 500)) for tf in ("5m","15m","1h")}
         if args.mode=="backtest":
             result=backtest(args.symbol,rows["5m"],rows["15m"],rows["1h"],info,args.equity)
             events=result.events
