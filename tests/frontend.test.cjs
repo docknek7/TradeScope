@@ -3,14 +3,14 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 function app(){
-  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://example.test',runScripts:'outside-only'});
+  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://example.test',runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window;
   w.confirm=()=>true;
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
   w.HTMLDialogElement.prototype.close=function(){this.open=false};
   w.fetch=async()=>{throw Error('Unexpected network request')};
-  w.eval(fs.readFileSync('app.js','utf8')+'\n'+fs.readFileSync('monitor.js','utf8')+`
-    window.testAPI={getData:()=>data,setData:d=>{data=d;render()},setSession:()=>{cfg={url:'https://test.supabase.co',anon:'public',userId:'user',token:{access_token:'token',expires_at:Date.now()/1000+3600}};saveCfg()},loadMonitorHistory};`);
+  w.eval(fs.readFileSync('app.js','utf8')+'\n'+fs.readFileSync('monitor.js','utf8')+'\n'+fs.readFileSync('quotes.js','utf8')+`
+    window.testAPI={refreshQuotes,setMarketKey:k=>{cfg.marketKey=k},getData:()=>data,setData:d=>{data=d;render()},setSession:()=>{cfg={url:'https://test.supabase.co',anon:'public',userId:'user',token:{access_token:'token',expires_at:Date.now()/1000+3600}};saveCfg()},loadMonitorHistory};`);
   return dom;
 }
 test('V2 stock editing, note pinning, alert toggles and backups stay available',()=>{
@@ -111,5 +111,68 @@ test('inflight response cannot leak previous account history after logout',async
     release();await load;
     assert.equal(d.getElementById('historyList').children.length,0);
     assert.match(d.getElementById('historyStatus').textContent,/登录后/);
+  }finally{w.close()}
+});
+
+test('automatic quotes update price and timestamp but preserve holdings; missing key makes no request',async()=>{
+  const dom=app(),w=dom.window,d=w.document;
+  try{
+    assert.match(d.getElementById('quoteRefreshStatus').textContent,/填写 Finnhub/);
+    const data=w.testAPI.getData();data.stocks=data.stocks.slice(0,1);
+    const stock=data.stocks[0],cost=stock.cost;stock.shares=12;
+    const stamp=Math.floor(Date.now()/1000);let requests=0;
+    w.testAPI.setMarketKey('test-key');
+    w.fetch=async(url,opts)=>{requests++;assert.ok(!url.includes('test-key'));assert.equal(opts.headers['X-Finnhub-Token'],'test-key');return {ok:true,json:async()=>({c:900,t:stamp})}};
+    await w.testAPI.refreshQuotes(true);
+    assert.equal(requests,1);assert.equal(stock.price,900);assert.equal(stock.cost,cost);assert.equal(stock.shares,12);
+    assert.equal(stock.quoteAt,stamp*1000);assert.equal(stock.source,'Finnhub 报价');
+    assert.match(d.getElementById('stockGrid').textContent,/已获取报价/);
+    assert.equal(JSON.parse(w.localStorage.getItem('tradescope.v2.data')).stocks[0].price,900);
+  }finally{w.close()}
+});
+test('failed and invalid quotes retain last price and do not trigger old-price alerts',async()=>{
+  const dom=app(),w=dom.window,d=w.document;
+  try{
+    const data=w.testAPI.getData();data.stocks=data.stocks.slice(0,1);const stock=data.stocks[0],price=stock.price;
+    w.testAPI.setMarketKey('secret');
+    w.fetch=async()=>{throw Error('network https://example.test?token=secret')};
+    await w.testAPI.refreshQuotes(false);
+    assert.equal(stock.price,price);assert.equal(stock.quoteError,'网络请求失败');
+    assert.match(d.getElementById('stockGrid').textContent,/旧报价已过期/);
+    assert.ok(!d.body.textContent.includes('token=secret'));assert.ok(!d.getElementById('toast').textContent.includes('符合观察条件'));
+    w.fetch=async()=>({ok:true,json:async()=>({c:0,t:Date.now()/1000})});
+    await w.testAPI.refreshQuotes(true);assert.equal(stock.price,price);assert.equal(stock.quoteError,'行情数据无效');
+  }finally{w.close()}
+});
+test('rate limit stops batch and backs off even on manual refresh',async()=>{
+  const dom=app(),w=dom.window;
+  try{
+    w.testAPI.setMarketKey('test');let calls=0;
+    w.fetch=async()=>{calls++;return {ok:false,status:429}};
+    await w.testAPI.refreshQuotes(true);await w.testAPI.refreshQuotes(false);
+    assert.equal(calls,1);assert.equal(w.testAPI.getData().stocks[0].quoteError,'接口限流');
+  }finally{w.close()}
+});
+test('late quotes cannot overwrite a replaced workspace; duplicate refresh is ignored',async()=>{
+  const dom=app(),w=dom.window;
+  try{
+    w.testAPI.setMarketKey('test');let release,calls=0;
+    w.fetch=async()=>{calls++;await new Promise(r=>release=r);return {ok:true,json:async()=>({c:999,t:Math.floor(Date.now()/1000)})}};
+    const pending=w.testAPI.refreshQuotes(true);await w.testAPI.refreshQuotes(true);
+    const next=JSON.parse(JSON.stringify(w.testAPI.getData()));w.testAPI.setData(next);
+    release();await pending;assert.equal(calls,1);assert.equal(next.stocks[0].price,872.556);
+  }finally{w.close()}
+});
+test('hidden page pauses automatic polling; older provider timestamps do not replace prices',async()=>{
+  const dom=app(),w=dom.window;
+  try{
+    w.testAPI.setMarketKey('test');let calls=0;
+    Object.defineProperty(w.document,'hidden',{configurable:true,value:true});
+    w.fetch=async()=>{calls++;return {ok:true,json:async()=>({c:1,t:1})}};
+    await w.testAPI.refreshQuotes(true);assert.equal(calls,0);
+    Object.defineProperty(w.document,'hidden',{configurable:true,value:false});
+    const data=w.testAPI.getData();data.stocks=data.stocks.slice(0,1);data.stocks[0].quoteAt=Date.now();
+    await w.testAPI.refreshQuotes(true);
+    assert.equal(data.stocks[0].price,872.556);assert.match(data.stocks[0].quoteError,/早于/);
   }finally{w.close()}
 });
