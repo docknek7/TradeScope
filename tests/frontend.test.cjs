@@ -122,7 +122,7 @@ test('automatic quotes update price and timestamp but preserve holdings; missing
     const stock=data.stocks[0],cost=stock.cost;stock.shares=12;
     const stamp=Math.floor(Date.now()/1000);let requests=0;
     w.testAPI.setMarketKey('test-key');
-    w.fetch=async(url,opts)=>{requests++;assert.ok(!url.includes('test-key'));assert.equal(opts.headers['X-Finnhub-Token'],'test-key');return {ok:true,json:async()=>({c:900,t:stamp})}};
+    w.fetch=async(url,opts)=>{requests++;const request=new URL(url);assert.equal(request.origin,'https://finnhub.io');assert.equal(request.searchParams.get('token'),'test-key');assert.equal(opts.headers,undefined);assert.equal(opts.credentials,'omit');assert.equal(opts.referrerPolicy,'no-referrer');return {ok:true,json:async()=>({c:900,t:stamp})}};
     await w.testAPI.refreshQuotes(true);
     assert.equal(requests,1);assert.equal(stock.price,900);assert.equal(stock.cost,cost);assert.equal(stock.shares,12);
     assert.equal(stock.quoteAt,stamp*1000);assert.equal(stock.source,'Finnhub 报价');

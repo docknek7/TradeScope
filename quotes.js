@@ -35,8 +35,10 @@ async function refreshQuotes(automatic=false){
       const timeout=setTimeout(()=>quoteController?.abort(),10000);
       let rateLimited=false;
       try{
-        const response=await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(stock.symbol),{
-          headers:{'X-Finnhub-Token':key},signal:quoteController.signal,cache:'no-store'
+        const response=await fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(stock.symbol)+'&token='+encodeURIComponent(key),{
+          // Finnhub does not allow X-Finnhub-Token in browser CORS preflights.
+          // Keep this a simple GET; never include the credential-bearing URL in errors.
+          signal:quoteController.signal,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'
         });
         if(response.status===429){rateLimited=true;quoteBackoffUntil=Date.now()+120000;throw Error('接口限流')}
         if(!response.ok)throw Error(response.status===401||response.status===403?'密钥或行情权限不可用':'行情服务暂不可用');
